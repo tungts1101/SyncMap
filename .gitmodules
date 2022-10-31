@@ -1,0 +1,3 @@
+[submodule "SampleCode"]
+	path = SampleCode
+	url = https://github.com/zweifel/SyncMap.git
