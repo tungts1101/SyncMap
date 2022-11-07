@@ -1,16 +1,17 @@
 import torch
 
 class SyncMap:
-    def __init__(self, num_state: int, dimension: int):
+    def __init__(self, num_state: int, dimension: int, adaption_rate: int):
         """SyncMap solver.
 
         Args:
             num_state: Number of states.
-            dimension: Number of dimension for weight value.
+            dimension: Number of dimensions for weight value.
         """        
         self.num_state = num_state
         self.dimension = dimension
-        self.W = torch.rand(num_state, self.dimension)        
+        self.adaption_rate = adaption_rate
+        self.W = torch.rand(num_state, self.dimension)
 
     def run(self, inputs):
         """Execute solver.
@@ -31,7 +32,7 @@ class SyncMap:
             if pmass[i] <= 1  or nmass[i] <= 1: continue
 
             center_pos = torch.sum(self.W[positive[i]], dim=0) / pmass[i]      # 1 * dimension
-            center_neg = torch.sum(self.W[negative[i]], dim=0) / pmass[i]      # 1 * dimension
+            center_neg = torch.sum(self.W[negative[i]], dim=0) / nmass[i]      # 1 * dimension
             center_pos = torch.unsqueeze(center_pos, 0)
             center_neg = torch.unsqueeze(center_neg, 0)
 
@@ -43,7 +44,8 @@ class SyncMap:
             update_neg = torch.mul(1-phi, center_neg - self.W) / dist_neg
             update = update_pos - update_neg
 
-            self.W += update
+            self.W += self.adaption_rate * update
+            self.W /= self.W.max()
     
     def get_result(self):
         """Return the weight matrix.

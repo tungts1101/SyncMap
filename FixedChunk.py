@@ -12,7 +12,7 @@ class FixedChunk:
             num_remembered: A number of states that will be remembered
         """        
         self.time_delay   = time_delay
-        self.time_counter = 0
+        self.time_counter = 1
 
         self.total_num_chunks = len(num_states_per_chunk)
         self.total_num_states = sum(num_states_per_chunk)
@@ -30,18 +30,17 @@ class FixedChunk:
         self.current_index = 0
         self.num_rembered  = num_remembered
         self.remembered_states = []
+        self.true_labels = [i for i,j in enumerate(num_states_per_chunk) for _ in range(j)]
+        self.state = None
 
     def update(self):
         """Update state by time counter changes.
-
-        Warning:
-            Remember to call after get_input method to assign value for self.state.  
         """
         self.time_counter += 1
-        if self.time_counter == self.time_delay:
-            self.time_counter = 0
+        if self.time_counter >= self.time_delay:
+            self.time_counter = 1
             self.current_index += 1
-            self.remembered_states.append(self.state)
+            if self.state.any() != None: self.remembered_states.append(self.state)
             if len(self.remembered_states) > self.num_rembered:
                 self.remembered_states = self.remembered_states[1:]
 
@@ -56,13 +55,11 @@ class FixedChunk:
             An input value - an exponentially decaying vector with the same size 
             as the number of states.
         """
-        label = self.chunk_index
         self.state = self.states[self.chunk_index][self.current_index]
         input = self.state * np.exp(-0.1 * self.time_counter)
         for time_frame, old_state in enumerate(self.remembered_states):
-            input += old_state * np.exp(-0.1 * self.time_delay * (len(self.remembered_states) - time_frame))
-        
-        return (input, label)
+            input += old_state * np.exp(-0.1 * (self.time_delay * (len(self.remembered_states) - time_frame)) + self.time_counter)
+        return input
 
     def get_sequence(self, sequence_size: int) -> Tuple:
         """Get sequence of input values.
@@ -71,13 +68,18 @@ class FixedChunk:
             sequence_size (int): A size of sequence.
         
         Returns:
-            A sequence of input values and true labels.
+            A sequence of input values.
         """
-        inputs = []
-        labels = []
+        sequence = []
         for _ in range(sequence_size):
-            input = self.get_input()
-            inputs.append(input[0])
-            labels.append(input[1])
+            sequence.append(self.get_input())
             self.update()
-        return (torch.tensor(np.array(inputs)), labels)
+        return torch.tensor(np.array(sequence))
+    
+    def get_true_labels(self) -> list:
+        """Get chunk label for each state.
+
+        Returns:
+            A list of chunk labels.
+        """ 
+        return self.true_labels
